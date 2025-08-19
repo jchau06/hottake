@@ -1,0 +1,89 @@
+.animateGreen {
+  animation: greenAnimation 0.5s ease-out backwards;
+}
+
+.animateRed {
+  animation: redAnimation 0.5s ease-out backwards;
+}
+
+@keyframes greenAnimation {
+  0% {
+    background: #b2f5ea;
+  }
+  50% {
+    background: white;
+  }
+}
+
+@keyframes redAnimation {
+  0% {
+    background: #feb2b2;
+  }
+  50% {
+    background: white;
+  }
+}
+
+.cardContainer {
+  scroll-snap-align: center;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.toolTipContainer {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.toolTipIcon {
+  padding: 0 !important;
+  min-width: 20px !important;
+  height: 20px !important;
+}
+
+.scrollContainer {
+  margin-left: auto;
+  margin-right: auto;
+  height: 100vh;
+  width: 100vw;
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+  scroll-behavior: smooth;
+}
+
+.screenButtonContainer {
+  overflow: hidden;
+  position: absolute;
+  display: flex;
+  scroll-snap-align: end;
+  width: 100%;
+  height: 100%;
+}
+
+.createButton {
+  z-index: 999;
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+}
+
+.sortText {
+  background: white;
+  padding: 6px;
+  border-radius: 0.5em;
+}
+
+.iconStyle {
+  width: 20px;
+  height: 20px;
+}
+
+.relative {
+  position: relative;
+}
