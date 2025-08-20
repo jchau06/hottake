@@ -29,7 +29,11 @@ export const PostCard = ({
   scrollContainerRef,
   ...post
 }) => {
-  const { title, agree, disagree, interactions, _id } = post;
+  const { title, interactions, id } = post;
+
+  const [agree, setAgree] = useState(post.agree || []);
+  const [disagree, setDisagree] = useState(post.disagree || []);
+
 
   const { addToast } = useErrorToast();
   const { addSuccessToast } = useSuccessToast();
@@ -49,20 +53,34 @@ export const PostCard = ({
 
   const hasShare = !!navigator.share;
 
-  async function fetchComments() {
-    // on startup fetch comments
-    try {
-      const res = await fetch(`${API_URL}/comment?postID=${_id}`);
-      const commentsFromDB = await res.json();
-      if (commentsFromDB.length !== 0) {
-        setComments(commentsFromDB);
-        // console.log(comments);
-      }
-    } catch (error) {
-      console.error(error);
-      addToast(error?.response?.data || error.message);
-    }
+  const fetchComments = async () => {
+  try {
+    const res = await fetch(`/api/comment?postID=${id}`);
+    if (!res.ok) throw new Error("Failed to fetch comments");
+    const data = await res.json();
+    setComments(data);
+  } catch (err) {
+    console.error(err);
+    addToast(err.message);
   }
+};
+
+  const fetchVotes = async () => {
+    try {
+      const res = await fetch(`/api/post?postID=${id}`);
+      if (!res.ok) throw new Error("Failed to fetch votes");
+      const data = await res.json();
+
+      // assuming data has arrays for agree and disagree
+      setHeat(data.agree.length + data.disagree.length);
+      post.agree = data.agree;
+      post.disagree = data.disagree;
+    } catch (err) {
+      console.error(err);
+      addToast(err.message);
+    }
+  };
+
 
   useEffect(() => {
     fetchComments(); // fetch comments on mount
@@ -78,134 +96,119 @@ export const PostCard = ({
     }).format(num);
   }
 
-  function agreeWithPost() {
+  const agreeWithPost = async () => {
     setAnimated((prev) => ({ ...prev, left: true }));
     setTimeout(() => {
       scrollContainerRef.current.scrollBy({ top: 50 });
     }, 800);
 
-    fetch(`${API_URL}/agree`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postID: _id, userUUID: uuid }),
-    })
-      .then((response) => response.json())
-      .then(function (data) {
-        if (agree.includes(uuid)) {
-          setHeat((prev) => {
-            agree.splice(agree.indexOf(uuid), 1);
-            return prev - 1;
-          });
-          //our user has previously agreed, we should now undo the agree by -1ing from the number
-        } else if (disagree.includes(uuid)) {
-          setHeat((prev) => {
-            agree.push(uuid);
-            disagree.splice(disagree.indexOf(uuid), 1);
-            return prev;
-          });
-          //our user has previously disagreed, we should now undo disagree by +2ing the number
-        } else {
-          setHeat((prev) => {
-            agree.push(uuid);
-            return prev + 1;
-          });
-          //has not agreed or disagreed, just +1
-        }
+    // Local state update for immediate UI feedback
+    if (agree.includes(uuid)) {
+      setAgree((prev) => prev.filter((id) => id !== uuid));
+      setHeat((prev) => prev - 1);
+    } else if (disagree.includes(uuid)) {
+      setDisagree((prev) => prev.filter((id) => id !== uuid));
+      setAgree((prev) => [...prev, uuid]);
+      setHeat((prev) => prev); // net 0
+    } else {
+      setAgree((prev) => [...prev, uuid]);
+      setHeat((prev) => prev + 1);
+    }
 
-        //console.log(data)
-      })
-      .catch(function (error) {
-        console.error(error);
-        addToast(error?.response?.data || error.message);
+    try {
+      await fetch(`${API_URL}/agree`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postID: id, userUUID: uuid, type: "AGREE" }),
       });
-  }
+      fetchVotes();
+    } catch (err) {
+      addToast(err.message);
+    }
+  };
 
-  function disagreeWithPost() {
+  const disagreeWithPost = async () => {
     setAnimated((prev) => ({ ...prev, right: true }));
     setTimeout(() => {
       scrollContainerRef.current.scrollBy({ top: 50 });
     }, 800);
 
-    fetch(`${API_URL}/disagree`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postID: _id, userUUID: uuid }),
-    })
-      .then((response) => response.json())
-      .then(function (data) {
-        if (disagree.includes(uuid)) {
-          setHeat((prev) => {
-            disagree.splice(disagree.indexOf(uuid), 1);
-            return prev - 1;
-          });
-        } else if (agree.includes(uuid)) {
-          setHeat((prev) => {
-            agree.splice(agree.indexOf(uuid), 1);
-            disagree.push(uuid);
+    if (disagree.includes(uuid)) {
+      setDisagree((prev) => prev.filter((id) => id !== uuid));
+      setHeat((prev) => prev - 1);
+    } else if (agree.includes(uuid)) {
+      setAgree((prev) => prev.filter((id) => id !== uuid));
+      setDisagree((prev) => [...prev, uuid]);
+      setHeat((prev) => prev); // net 0
+    } else {
+      setDisagree((prev) => [...prev, uuid]);
+      setHeat((prev) => prev + 1);
+    }
 
-            return prev;
-          });
-          //our user has previously disagreed, we should now undo disagree by +2ing the number
-        } else {
-          setHeat((prev) => {
-            disagree.push(uuid);
-
-            return prev + 1;
-          });
-          //has not agreed or disagreed, just +1
-        }
-
-        //console.log(response)
-      })
-      .catch(function (error) {
-        console.error(error);
-        addToast(error.response.data || error.message);
+    try {
+      await fetch(`${API_URL}/disagree`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postID: id, userUUID: uuid, type: "DISAGREE" }),
       });
-  }
+      fetchVotes();
+    } catch (err) {
+      addToast(err.message);
+    }
+  };
 
-  function handleSubmitComment() {
-    let inputtedComment = commentInput.current.value;
-    if (inputtedComment.length > 140) {
-      addToast("Comment must be less than 140 characters.");
-      return;
-    } else if (inputtedComment.length === 0) {
+
+  async function handleSubmitComment() {
+    const inputtedComment = commentInput.current.value.trim();
+
+    if (inputtedComment.length === 0) {
       addToast("Comment content is missing.");
       return;
+    } else if (inputtedComment.length > 140) {
+      addToast("Comment must be less than 140 characters.");
+      return;
     }
 
+    // Clear input immediately
     commentInput.current.value = "";
-    setComments((prev) => {
-      return [...prev, { content: inputtedComment, date: Date.now() }];
-    });
 
-    if (comments.length > 2) {
-      lastComment.current.scrollIntoView({
-        behavior: "smooth",
-        block: "end",
+    // Create a temporary ID for optimistic comment
+    const tempId = "temp-" + Math.random();
+
+    // Optimistic update
+    const optimisticComment = {
+      _id: tempId,
+      content: inputtedComment,
+      date: Date.now(), // Ensure this matches the 'date' field used in PostComment
+      userId: uuid,
+    };
+    setComments((prev) => [...prev, optimisticComment]);
+
+    try {
+      const res = await fetch("/api/comment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: inputtedComment,
+          postID: id,
+          userId: uuid,
+        }),
       });
+
+      if (!res.ok) throw new Error("Failed to submit comment");
+      const data = await res.json(); // actual comment from server
+
+      // Replace the optimistic comment with the real one
+      setComments((prev) =>
+        prev.map((c) => (c._id === tempId ? data : c))
+      );
+    } catch (err) {
+      // Remove the optimistic comment if server fails
+      setComments((prev) => prev.filter((c) => c._id !== tempId));
+      addToast(err.message);
     }
-
-    // commentContainer.current.scrollBy({ top: 20000000, behavior: "smooth" });
-
-    //we have the id, we make a post request to /comment
-    fetch(`${API_URL}/comment`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: inputtedComment, postID: _id }),
-    })
-      .then((response) => response.json())
-      .then(function (response) {
-        // reload to refetch
-        // TODO: Change this to redirect to hottake.gg/post_id
-      })
-      .catch(function (error) {
-        // implement error state
-        console.error(error);
-        addToast(error?.response?.data || error.message);
-      });
-
-    //console.log(commentInput.current.value)
   }
+
 
   return (
     <div className={cardContainer}>

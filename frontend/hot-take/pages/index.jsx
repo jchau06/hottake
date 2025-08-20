@@ -6,8 +6,6 @@ import { useDisclosure, Button, Icon, Flex, Text } from "@chakra-ui/react";
 // prettier-ignore
 import { BsPlusLg, BsSortNumericUp, BsFillStarFill, BsSortNumericDownAlt, BsShuffle, BsFillHandThumbsUpFill, BsFillHandThumbsDownFill } from "react-icons/bs";
 import { AiFillFire } from "react-icons/ai";
-// import { Inter } from 'next/font/google'
-// import styles from '../styles/Home.module.css'
 // Components
 import { PostCard } from "../components/PostCard";
 import { CreatePostModal } from "../components/CreatePostModal";
@@ -25,40 +23,22 @@ import { useErrorToast } from "../hooks/useErrorToast";
 
 import { env_url } from "/utils/api_url";
 
-// const inter = Inter({ subsets: ['latin'] })
 // Google Analytics ID
 const TRACKING_ID = "UA-253199381-1"; // OUR_TRACKING_ID
 
-const mockPosts = [
-  {
-    _id: "1",
-    title: "Pineapple absolutely belongs on pizza 🍍🍕",
-    agree: ["user1", "user2", "user3"],
-    disagree: ["user4"],
-    votes: 3,
-    timestamp: "2025-08-18T12:00:00Z",
-  },
-  {
-    _id: "2",
-    title: "Cold brew is overrated — hot coffee supremacy ☕🔥",
-    agree: ["user5"],
-    disagree: ["user6", "user7"],
-    votes: -1,
-    timestamp: "2025-08-18T13:15:00Z",
-  },
-  {
-    _id: "3",
-    title: "Cats > Dogs. No contest. 🐱",
-    agree: ["user8", "user9", "user10", "user11"],
-    disagree: [],
-    votes: 4,
-    timestamp: "2025-08-18T14:30:00Z",
-  },
-];
+// export async function getServerSideProps() {
+// 	const API_URL = env_url();
+// 	// process.env.NEXT_PUBLIC_API_URL || "https://hottake.gg/api";
 
+// 	const res = await fetch(`${API_URL}/posts?offset=0`);
+// 	const postsFromDB = await res.json();
+// 	return { props: { postsFromDB } };
+// }
 
 export default function Home() {
   const API_URL = env_url();
+
+  // key for sorting button
 
   const SORT_ICONS = [
     { icon: BsSortNumericDownAlt, name: "New", w: 6, h: 6 },
@@ -77,34 +57,40 @@ export default function Home() {
   const [animated, setAnimated] = useState({ left: false, right: false }); // Left and Right flashing animations
   const [uuid, setUUID] = useState(null);
   const [sortMethod, setSortMethod] = useState(1);
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState([]); 
   const [hasMorePosts, setHasMorePosts] = useState(false);
 
   // other hooks
   const scrollContainerRef = useRef(null); // To access scroll container containing posts
   const { isOpen, onOpen, onClose } = useDisclosure(); // Modal state
 
-  // async function fetchPosts(type) {
-  //   try {
-  //     const response = await fetch(`${API_URL}/posts?sort=${type}`, {
-  //       headers: {
-  //         Authorization: `Basic ${btoa(localStorage.getItem("uuid"))}`,
-  //       },
-  //     });
-  //     const results = await response.json();
+  async function fetchPosts(type, offset = 0) {
+    try {
+      const res = await fetch(`/api/posts?sort=${type}&offset=${offset}`, {
+        headers: {
+          Authorization: `Basic ${btoa(localStorage.getItem("uuid"))}`,
+        },
+      });
+      const results = await res.json();
 
-  //     // console.log(response[0]);
-  //     if (results?.length == 0) {
-  //       setHasMorePosts(false);
-  //     } else {
-  //       setHasMorePosts(true);
-  //     }
-  //     return results;
-  //   } catch (error) {
-  //     console.error(error);
-  //     addToast(error?.response?.data || error.message);
-  //   }
-  // }
+      if (offset === 0) {
+        setPosts(results);
+      } else {
+        setPosts((prev) => [...prev, ...results]);
+      }
+
+      setHasMorePosts(results.length > 0);
+
+      if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+
+    } catch (error) {
+      console.error(error);
+      addToast(error?.message || "Failed to fetch posts.");
+    }
+  }
 
   useEffect(() => {
     // Google Analytics initialization
@@ -112,41 +98,61 @@ export default function Home() {
     ReactGA.pageview(window.location.pathname);
 
     // Check if user has visited already
-    if (localStorage.getItem("uuid") == null) {
+    if (!localStorage.getItem("uuid")) {
       // If not, add UUID to local storage.
       localStorage.setItem("uuid", uuidv4());
-      setUUID(localStorage.getItem("uuid"));
-    } else {
-      setUUID(localStorage.getItem("uuid"));
     }
+    setUUID(localStorage.getItem("uuid"));
 
-    setPosts(mockPosts);
-    setHasMorePosts(false); // no backend to load more yet
+    (async () => {
+      await fetchPosts(SORT_ICONS[sortMethod].name.toLowerCase());
+    })();
   }, []);
 
-
-    // if (localStorage.getItem("sort") == null) localStorage.setItem("sort", "0");
-    // setSortMethod(parseInt(localStorage.getItem("sort")));
-    // if (localStorage.getItem("sort") !== "0") {
-    // 	fetchPosts(SORT_ICONS[parseInt(localStorage.getItem("sort")) % SORT_ICONS.length].name.toLowerCase())
-    // 		.then((res) => setPosts(res))
-    // 		.catch((error) => {
-    // 			console.error(error);
-    // 			addToast(error?.response?.data || error.message);
-    // 		});
-    // }
-
-  //   (async () => {
-  //     const res = await fetchPosts(SORT_ICONS[sortMethod].name.toLowerCase());
-  //     setPosts(res);
-  //   })();
-
-  //   setHasMorePosts(!(posts.length === 0));
-  // }, []);
+  // if (localStorage.getItem("sort") == null) localStorage.setItem("sort", "0");
+  // setSortMethod(parseInt(localStorage.getItem("sort")));
+  // if (localStorage.getItem("sort") !== "0") {
+  // 	fetchPosts(SORT_ICONS[parseInt(localStorage.getItem("sort")) % SORT_ICONS.length].name.toLowerCase())
+  // 		.then((res) => setPosts(res))
+  // 		.catch((error) => {
+  // 			console.error(error);
+  // 			addToast(error?.response?.data || error.message);
+  // 		});
+  // }
 
   // useEffect(() => {
   // 	localStorage.setItem("sort", sortMethod);
   // }, [sortMethod]);
+
+  async function loadMore() {
+    try {
+      const res = await fetch(
+        `${API_URL}/posts?offset=${posts.length}&sort=${SORT_ICONS[sortMethod].name.toLowerCase()}`,
+        {
+          headers: {
+            Authorization: `Basic ${btoa(localStorage.getItem("uuid"))}`,
+          },
+        }
+      );
+      const loadedPosts = await res.json();
+      if (loadedPosts?.length === 0) {
+        setHasMorePosts(false);
+      } else {
+        setPosts((prev) => [...prev, ...loadedPosts]);
+      }
+    } catch (error) {
+      addToast(error?.response?.data || error.message);
+    }
+  }
+
+  // Sorting button handler
+  const handleSortSwitch = async () => {
+    // Compute the new sort index first
+    const newIndex = (sortMethod + 1) % SORT_ICONS.length;
+    setSortMethod(newIndex); // async, but safe because we use newIndex below
+    await fetchPosts(SORT_ICONS[newIndex].name.toLowerCase());
+  };
+
 
   // async function loadMore() {
   //   try {
@@ -171,10 +177,6 @@ export default function Home() {
   //   }
   // }
 
-  async function loadMore() {
-  console.log("Load more disabled — using mock data only");
-  }
-
   return (
     <>
       <Navbar />
@@ -196,27 +198,7 @@ export default function Home() {
       </Button>
       <Flex justify="center" align="center" gap="6px" className={createButton}>
         <Button
-          onClick={() => {
-            setSortMethod((prev) => {
-              if (prev + 1 > SORT_ICONS.length - 1) {
-                return 0;
-              } else return prev + 1;
-            });
-
-            fetchPosts(
-              SORT_ICONS[
-                (sortMethod + 1) % SORT_ICONS.length
-              ].name.toLowerCase(),
-            )
-              .then((res) => setPosts(res))
-              .catch((error) => {
-                console.error(error);
-                addToast(error?.response?.data || error.message);
-              });
-            setTimeout(() => {
-              scrollContainerRef.current.scrollTo({ top: 0 });
-            }, 500);
-          }}
+          onClick={handleSortSwitch}
           colorScheme="gray"
           style={{
             background: "#718096",
@@ -257,7 +239,7 @@ export default function Home() {
             {posts.map(
               (
                 post,
-                i, //TODO theres an error here...duplicate keys
+                i //TODO theres an error here...duplicate keys
               ) => (
                 <div key={`${post._id}${i}`} className={relative}>
                   {/* this is the left and right indicators */}
@@ -286,25 +268,21 @@ export default function Home() {
                     ></div>
                   </div>
                   {/* actual card */}
-
                   <PostCard
                     {...post}
                     uuid={uuid}
                     setAnimated={setAnimated}
                     scrollContainerRef={scrollContainerRef}
-                    key={`${post._id}${i}`}
+                    key={`${post.id}${i}`}
                   />
                 </div>
-              ),
+              )
             )}
           </div>
         </InfiniteScroll>
       ) : (
         <FireLoadAnimation />
       )}
-
-      {/* <main className={styles.main}>
-      </main> */}
     </>
-  )
+  );
 }

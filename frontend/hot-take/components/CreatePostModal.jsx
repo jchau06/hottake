@@ -3,39 +3,39 @@ import { useState, useRef } from "react";
 import { Button, Textarea, Modal, ModalOverlay, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, ModalContent } from "@chakra-ui/react";
 
 import { useErrorToast } from "../hooks/useErrorToast";
-import { env_url } from "/utils/api_url";
 
 export function CreatePostModal({ isOpen, onClose }) {
   const { addToast } = useErrorToast();
   const [isCreateLoading, setIsCreateLoading] = useState(false);
 
-  const API_URL = env_url();
-
   // ref for input
   const input = useRef(null);
 
-  const handlePostSubmit = (e) => {
+  const handlePostSubmit = async (e) => {
     e.preventDefault();
     setIsCreateLoading(true);
 
-    fetch(`${API_URL}/post`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: input.current.value }),
-    })
-      .then((response) => response.json())
-      .then(function (data) {
-        // reload to refetch
-        // TODO: Change this to redirect to hottake.gg/post_id
-        setIsCreateLoading(false);
-        window.location.reload(true);
-      })
-      .catch(function (error) {
-        console.error(error);
-        // addToast(error?.response || error.message);
-        addToast("Posting too fast");
-        setIsCreateLoading(false);
+    try {
+      const response = await fetch("/api/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: input.current.value }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to create post");
+      }
+
+      const data = await response.json();
+
+      // TODO: Instead of reloading, redirect to `/post/${data.id}`
+      setIsCreateLoading(false);
+      window.location.reload(true);
+    } catch (error) {
+      console.error("Error creating post:", error);
+      addToast(error.message || "Something went wrong");
+      setIsCreateLoading(false);
+    }
   };
 
   return (
@@ -50,6 +50,7 @@ export function CreatePostModal({ isOpen, onClose }) {
               <Textarea
                 ref={input}
                 placeholder="Share a hot take of up to 140 characters!"
+                maxLength={140}
               />
             </ModalBody>
 
@@ -57,7 +58,7 @@ export function CreatePostModal({ isOpen, onClose }) {
               <Button
                 colorScheme="teal"
                 type="submit"
-                disabled={isCreateLoading}
+                isLoading={isCreateLoading}
               >
                 Post to HotTake
               </Button>
@@ -68,3 +69,5 @@ export function CreatePostModal({ isOpen, onClose }) {
     </>
   );
 }
+
+export default CreatePostModal;
