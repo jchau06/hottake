@@ -1,14 +1,10 @@
 # [hottake.gg](https://hottake.gg/)
 
-Explore and share hot takes anonymously. 
+A full-stack, online, social media site where you can explore and share hot takes anonymously. Share your most controversial takes now!
 
-## Built with
+## Tech Stack
 
-- Next.js
-- Express.js
-- Prisma
-- Supabase
-- Chakra-UI
+Next.js is used to support the front-end with Chakra UI and Tailwind CSS contributing to the aesthetic of the social media site. The back-end utilized a Prisma schema and a Supabase database. 
 
 ## License
 
